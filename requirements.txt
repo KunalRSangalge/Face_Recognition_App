@@ -3,3 +3,5 @@ mediapipe
 numpy 
 streamlit 
 scikit-learn
+insightface
+onnxruntime opencv-python numpy

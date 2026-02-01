@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import numpy as np
+##uninstalled mediapipe because of conflict with deepface
 
 mp_face_mesh = mp.solutions.face_mesh
 
@@ -12,7 +13,7 @@ face_mesh = mp_face_mesh.FaceMesh(
 )
 
 # Load image
-img = cv2.imread("test_face.jpg")
+img = cv2.imread("Photos/test_face.jpg")
 img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 results = face_mesh.process(img_rgb)

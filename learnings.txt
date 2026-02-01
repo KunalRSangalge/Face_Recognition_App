@@ -1,13 +1,30 @@
 Why this is ML (not just CV)
 This project shows:
-
 Representation learning
 Metric learning intuition
 Feature space reasoning
 Decision thresholds
 This is real ML, not just “CNN on dataset”.
 
+--------- not used only tested -----------------
 Instead of training a classifier, 
 I used a pretrained face embedding model to extract fixed-length feature vectors. 
 Face recognition is done by measuring similarity between embeddings, 
 which allows adding new identities without retraining.
+
+I built a face recognition system using MediaPipe for face detection and 
+landmark-based embedding extraction. Each face is represented as a high-dimensional
+embedding vector, and recognition is performed using similarity matching without 
+retraining the model. This allows real-time, 
+scalable identification with persistent user storage.
+
+-------------- used facenet -------------------
+I used cosine similarity on FaceNet embeddings and selected the recognition threshold 
+empirically by comparing intra-class and inter-class similarities.
+
+I use a pretrained FaceNet model to extract 128-dimensional embeddings for each detected face.
+These embeddings represent identity in a metric space. During inference, 
+I compare live embeddings with stored embeddings using cosine similarity and
+apply a threshold to decide whether the face matches a known identity or should be marked 
+as unknown. This avoids retraining and allows scalable recognition.
+
