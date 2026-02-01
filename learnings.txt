@@ -1,0 +1,13 @@
+Why this is ML (not just CV)
+This project shows:
+
+Representation learning
+Metric learning intuition
+Feature space reasoning
+Decision thresholds
+This is real ML, not just “CNN on dataset”.
+
+Instead of training a classifier, 
+I used a pretrained face embedding model to extract fixed-length feature vectors. 
+Face recognition is done by measuring similarity between embeddings, 
+which allows adding new identities without retraining.
