@@ -28,3 +28,6 @@ I compare live embeddings with stored embeddings using cosine similarity and
 apply a threshold to decide whether the face matches a known identity or should be marked 
 as unknown. This avoids retraining and allows scalable recognition.
 
+Real-Time Face Recognition System
+Built a Streamlit-based application using FaceNet embeddings (DeepFace) and cosine similarity 
+for identity recognition with persistent user storage and live webcam inference.

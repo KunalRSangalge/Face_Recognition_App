@@ -1,12 +1,16 @@
 from deepface import DeepFace
+import cv2
+
+img_path = "experiments/Photos/kunal_face.jpg"
+
+print("Running DeepFace on image path...")
 
 result = DeepFace.represent(
-    img_path="Photos/test_face_1.jpg",
+    img_path=img_path,
     model_name="Facenet",
+    detector_backend="opencv",
     enforce_detection=True
 )
 
-embedding = result[0]["embedding"]
-
-print("Embedding length:", len(embedding))
-print("First 10 values:", embedding[:10])
+print("SUCCESS")
+print("Embedding length:", len(result[0]["embedding"]))
