@@ -23,3 +23,13 @@ def save_database(embeddings, names):
     os.makedirs("data", exist_ok=True)
     np.save(EMBEDDINGS_PATH, embeddings)
     np.save(NAMES_PATH, names)
+
+def reset_database():
+    embeddings = np.empty((0,128))
+    names = np.array([])
+    save_database(embeddings,names)
+
+def delete_person(person_name):
+    embeddings, names = load_database()
+    mask = names != person_name
+    save_database(embeddings[mask], names[mask])

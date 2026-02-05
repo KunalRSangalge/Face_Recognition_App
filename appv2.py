@@ -21,17 +21,55 @@ def normalize_lighting(frame):
     return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
 
 
+# def extract_embedding_from_file(img_path):
+#     from deepface import DeepFace
+#     import numpy as np
+
+#     result = DeepFace.represent(
+#         img_path=img_path,
+#         model_name="Facenet",
+#         detector_backend="opencv",
+#         enforce_detection=True
+#     )
+#     return np.array(result[0]["embedding"])
+
 def extract_embedding_from_file(img_path):
     from deepface import DeepFace
+    import cv2
     import numpy as np
 
-    result = DeepFace.represent(
-        img_path=img_path,
-        model_name="Facenet",
-        detector_backend="opencv",
-        enforce_detection=True
+    img = cv2.imread(img_path)
+    if img is None:
+        raise ValueError("Image not found")
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(80, 80)
     )
+
+    if len(faces) == 0:
+        raise ValueError("No face detected")
+
+    # take largest face
+    x, y, w, h = max(faces, key=lambda b: b[2] * b[3])
+
+    face = img[y:y+h, x:x+w]
+    face = cv2.resize(face, (160, 160))
+    face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+    face = face.astype("uint8")
+
+    result = DeepFace.represent(
+        img_path=face,
+        model_name="Facenet",
+        detector_backend="skip",
+        enforce_detection=False
+    )
+
     return np.array(result[0]["embedding"])
+
 
 
 st.set_page_config(page_title="Face Recognition App", layout="centered")
@@ -153,14 +191,15 @@ elif mode == "Register New User":
 
 
 elif mode == "Live Recognition":
+    
     import cv2
     import time
     import numpy as np
     from deepface import DeepFace
     from utils.storage import load_database
-    from utils.recognition import recognize
-
-    st.subheader("📷 Live Face Recognition (Optimized)")
+    from utils.recognition import recognize,recognize_centroid,build_centroids
+    from sklearn.metrics.pairwise import cosine_similarity
+    st.subheader("📷 Live Face Detection + Recognition (DEBUG MODE)")
 
     start = st.button("Start Camera")
     stop = st.button("Stop Camera")
@@ -170,15 +209,7 @@ elif mode == "Live Recognition":
     # Load database once
     embeddings_db, names_db = load_database()
 
-    # Recognition settings
-    FRAME_SKIP = 10          # run recognition every N frames
-    RESIZE_SCALE = 0.5       # downscale frame for speed
-
-    # State variables
-    frame_count = 0
-    last_name = "Unknown"
-    last_score = 0.0
-
+    centroids = build_centroids(embeddings_db, names_db)
     # FPS tracking
     prev_time = 0
     fps = 0
@@ -192,8 +223,6 @@ elif mode == "Live Recognition":
                 st.error("Failed to access webcam")
                 break
 
-            frame_count += 1
-
             # ---------------- FPS CALCULATION ----------------
             curr_time = time.time()
             if prev_time != 0:
@@ -201,48 +230,81 @@ elif mode == "Live Recognition":
             prev_time = curr_time
             # -------------------------------------------------
 
+            # ---------------- FACE DETECTION (EVERY FRAME) ----------------
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(80, 80)
+            )
 
-            # ---------------- FACE RECOGNITION ----------------
-            if frame_count % FRAME_SKIP == 0:
+            for (x, y, w, h) in faces:
+                # 🔲 Draw bounding box
+                cv2.rectangle(
+                    frame,
+                    (x, y),
+                    (x + w, y + h),
+                    (0, 255, 0),
+                    2
+                )
+
+                # ✂️ Crop face
+                face = frame[y:y+h, x:x+w]
+
+                # Preprocess for FaceNet
+                face = cv2.resize(face, (160, 160))
+                face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+                face = face.astype("uint8")
+
+                
+                # embs = np.array(list(centroids.values()))
+                # sims = cosine_similarity([emb], np.array(list(centroids.values())))[0]
+                # for n, s in sorted(zip(centroids.keys(), sims), key=lambda x: -x[1]):
+                #     print(n, round(s, 3))
+
                 try:
-                    # small_frame = cv2.resize(
-                    #     frame, (0, 0),
-                    #     fx=RESIZE_SCALE, fy=RESIZE_SCALE
-                    # )
-                    norm = normalize_lighting(frame)
-                    small_frame = cv2.resize(norm, (0, 0), fx=0.5, fy=0.5)
-
-
                     reps = DeepFace.represent(
-                        img_path=small_frame,
+                        img_path=face,
                         model_name="Facenet",
-                        detector_backend="opencv",
+                        detector_backend="skip",
                         enforce_detection=False
                     )
 
                     if reps:
                         emb = np.array(reps[0]["embedding"])
-                        last_name, last_score = recognize(
-                            emb, embeddings_db, names_db
-                        )
+                        # name, score = recognize(
+                        #     emb, embeddings_db, names_db
+                        # )
+                        name, score = recognize_centroid(emb, centroids)
 
-                except Exception:
-                    pass  # keep stream alive
+                    else:
+                        name, score = "Unknown", 0.0
+
+                except Exception as e:
+                    print("Embedding error:", e)
+                    name, score = "Error", 0.0
+
+                # 🏷️ Draw label
+                cv2.putText(
+                    frame,
+                    f"{name} ({score:.2f})",
+                    (x, y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 255, 0),
+                    2
+                )
+
             # -------------------------------------------------
-
-            # ---------------- DRAW OVERLAY ----------------
-            label = f"{last_name} ({last_score:.2f})"
-            cv2.putText(
-                frame, label, (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2
-            )
 
             fps_text = f"FPS: {int(fps)}"
             cv2.putText(
-                frame, fps_text, (20, 80),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2
+                frame,
+                fps_text, (20, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8, (255, 255, 0), 2
             )
-            # -------------------------------------------------
 
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frame_placeholder.image(frame_rgb, channels="RGB")
@@ -251,4 +313,5 @@ elif mode == "Live Recognition":
                 break
 
         cap.release()
+
 
